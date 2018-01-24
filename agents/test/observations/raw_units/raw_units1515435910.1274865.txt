@@ -1,0 +1,408 @@
+[display_type: Visible
+alliance: Self
+tag: 4302831617
+unit_type: 48
+owner: 1
+pos {
+  x: 33.4482421875
+  y: 29.355712890625
+  z: 7.99609375
+}
+facing: 2.3283557891845703
+radius: 0.375
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: true
+is_on_screen: true
+is_blip: false
+health: 45.0
+health_max: 45.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+orders {
+  ability_id: 16
+  target_world_space_pos {
+    x: 26.85693359375
+    y: 35.999755859375
+  }
+}
+assigned_harvesters: 0
+ideal_harvesters: 0
+weapon_cooldown: 0.0
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Enemy
+tag: 4305715201
+unit_type: 110
+owner: 2
+pos {
+  x: 40.154296875
+  y: 27.049072265625
+  z: 7.99609375
+}
+facing: 3.5566272735595703
+radius: 0.5
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: false
+is_on_screen: true
+is_blip: false
+health: 135.22216796875
+health_max: 145.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Self
+tag: 4304666625
+unit_type: 48
+owner: 1
+pos {
+  x: 32.515380859375
+  y: 28.794189453125
+  z: 7.99609375
+}
+facing: 6.01170539855957
+radius: 0.375
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: true
+is_on_screen: true
+is_blip: false
+health: 45.0
+health_max: 45.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+orders {
+  ability_id: 23
+  target_unit_tag: 4305715201
+}
+assigned_harvesters: 0
+ideal_harvesters: 0
+weapon_cooldown: 0.0
+engaged_target_tag: 4305715201
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Enemy
+tag: 4305977345
+unit_type: 110
+owner: 2
+pos {
+  x: 39.719970703125
+  y: 26.079833984375
+  z: 7.99609375
+}
+facing: 3.4162464141845703
+radius: 0.5
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: false
+is_on_screen: true
+is_blip: false
+health: 145.0
+health_max: 145.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Enemy
+tag: 4305190913
+unit_type: 110
+owner: 2
+pos {
+  x: 40.1826171875
+  y: 28.065673828125
+  z: 7.99609375
+}
+facing: 3.7477893829345703
+radius: 0.5
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: false
+is_on_screen: true
+is_blip: false
+health: 145.0
+health_max: 145.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Self
+tag: 4304142337
+unit_type: 48
+owner: 1
+pos {
+  x: 34.93701171875
+  y: 29.037841796875
+  z: 7.99609375
+}
+facing: 5.93504524230957
+radius: 0.375
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: true
+is_on_screen: true
+is_blip: false
+health: 45.0
+health_max: 45.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+orders {
+  ability_id: 23
+  target_unit_tag: 4305715201
+}
+assigned_harvesters: 0
+ideal_harvesters: 0
+weapon_cooldown: 3.144775390625
+engaged_target_tag: 4305715201
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Self
+tag: 4303618049
+unit_type: 48
+owner: 1
+pos {
+  x: 35.296630859375
+  y: 27.75439453125
+  z: 7.99609375
+}
+facing: 0.9519085884094238
+radius: 0.375
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: true
+is_on_screen: true
+is_blip: false
+health: 45.0
+health_max: 45.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+orders {
+  ability_id: 16
+  target_world_space_pos {
+    x: 40.85693359375
+    y: 35.999755859375
+  }
+}
+assigned_harvesters: 0
+ideal_harvesters: 0
+weapon_cooldown: 0.0
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Self
+tag: 4303093761
+unit_type: 48
+owner: 1
+pos {
+  x: 33.112060546875
+  y: 25.123291015625
+  z: 7.99609375
+}
+facing: 5.51243782043457
+radius: 0.375
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: true
+is_on_screen: true
+is_blip: false
+health: 45.0
+health_max: 45.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+orders {
+  ability_id: 16
+  target_world_space_pos {
+    x: 38.5712890625
+    y: 20.0
+  }
+}
+assigned_harvesters: 0
+ideal_harvesters: 0
+weapon_cooldown: 0.0
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Self
+tag: 4304928769
+unit_type: 48
+owner: 1
+pos {
+  x: 33.860107421875
+  y: 26.020751953125
+  z: 7.99609375
+}
+facing: 3.1266956329345703
+radius: 0.375
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: true
+is_on_screen: true
+is_blip: false
+health: 29.0
+health_max: 45.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+orders {
+  ability_id: 16
+  target_world_space_pos {
+    x: 22.0
+    y: 23.142822265625
+  }
+}
+assigned_harvesters: 0
+ideal_harvesters: 0
+weapon_cooldown: 0.87841796875
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Enemy
+tag: 4305453057
+unit_type: 110
+owner: 2
+pos {
+  x: 39.255615234375
+  y: 28.527099609375
+  z: 7.99609375
+}
+facing: 3.8486194610595703
+radius: 0.5
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: false
+is_on_screen: true
+is_blip: false
+health: 140.15380859375
+health_max: 145.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Self
+tag: 4304404481
+unit_type: 48
+owner: 1
+pos {
+  x: 35.64404296875
+  y: 24.804931640625
+  z: 7.99609375
+}
+facing: 4.52830696105957
+radius: 0.375
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: true
+is_on_screen: true
+is_blip: false
+health: 29.0
+health_max: 45.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+orders {
+  ability_id: 16
+  target_world_space_pos {
+    x: 34.5712890625
+    y: 20.0
+  }
+}
+assigned_harvesters: 0
+ideal_harvesters: 0
+weapon_cooldown: 0.0
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Self
+tag: 4303355905
+unit_type: 48
+owner: 1
+pos {
+  x: 34.647705078125
+  y: 26.968017578125
+  z: 7.99609375
+}
+facing: 0.022953510284423828
+radius: 0.375
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: true
+is_on_screen: true
+is_blip: false
+health: 45.0
+health_max: 45.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+orders {
+  ability_id: 23
+  target_unit_tag: 4305715201
+}
+assigned_harvesters: 0
+ideal_harvesters: 0
+weapon_cooldown: 14.5625
+engaged_target_tag: 4305715201
+shield_max: 0.0
+energy_max: 0.0
+, display_type: Visible
+alliance: Self
+tag: 4303880193
+unit_type: 48
+owner: 1
+pos {
+  x: 32.535400390625
+  y: 25.621337890625
+  z: 7.99609375
+}
+facing: 6.27806282043457
+radius: 0.375
+build_progress: 1.0
+cloak: NotCloaked
+is_selected: true
+is_on_screen: true
+is_blip: false
+health: 45.0
+health_max: 45.0
+shield: 0.0
+energy: 0.0
+is_flying: false
+is_burrowed: false
+orders {
+  ability_id: 23
+  target_unit_tag: 4305977345
+}
+assigned_harvesters: 0
+ideal_harvesters: 0
+weapon_cooldown: 0.0
+engaged_target_tag: 4305977345
+shield_max: 0.0
+energy_max: 0.0
+]

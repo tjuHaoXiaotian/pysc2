@@ -1,0 +1,1 @@
+<pysc2.lib.static_data.StaticData object at 0x0000007BBC207668>

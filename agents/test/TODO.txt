@@ -1,0 +1,19 @@
+1. 包装每个agent的局部观察
+
+
+
+2: 包装动作
+
+3. actor:
+
+4. critic:
+
+5. replay buffer:
+
+s:
+a:
+r:
+s_:
+end:
+model_ids:
+
