@@ -61,16 +61,22 @@ class Critic(object):
         '''
         with tf.variable_scope(scope):
             # TODO: 目前是分别计算，求和累加
-            layer1_action = self._fully_connected(other_units_action_input, [self.action_dim * (self.agent_num-1), 1024], [1024], activation_fn=tf.nn.elu,
+            # activation_func = tf.nn.elu
+            # activation_func = tf.nn.relu
+            activation_func = tf.nn.tanh
+            layer1_action = self._fully_connected(other_units_action_input, [self.action_dim * (self.agent_num-1), 1024], [1024], activation_fn=activation_func,
                                            variable_scope_name="layer1_action", trainable=trainable)
-            layer1_state = self._fully_connected(critic_state_inputs, [self.state_dim * 13, 1024], [1024], activation_fn=tf.nn.elu,
+            layer1_state = self._fully_connected(critic_state_inputs, [self.state_dim * 13, 1024], [1024], activation_fn=activation_func,
                                            variable_scope_name="layer1_state", trainable=trainable)
-            layer2 = self._fully_connected(tf.add(layer1_action, layer1_state), [1024, 256], [256], activation_fn=tf.nn.elu,
+            layer2 = self._fully_connected(tf.add(layer1_action, layer1_state), [1024, 256], [256], activation_fn=activation_func,
                                            variable_scope_name="layer2", trainable=trainable)
-            layer3 = self._fully_connected(layer2, [256, 128], [128], activation_fn=tf.nn.elu,
+            layer3 = self._fully_connected(layer2, [256, 128], [128], activation_fn=activation_func,
                                            variable_scope_name="layer3", trainable=trainable)
             out = self._fully_connected(layer3, [128, self.action_dim], [self.action_dim], activation_fn=None,
                                         variable_scope_name="out", trainable=trainable)
+
+            with tf.name_scope("critic/q"):
+                tf.summary.histogram('critic/q', out)  # Tensorflow >= 0.12
         return out
 
     def _build_update_graph(self):
@@ -90,7 +96,10 @@ class Critic(object):
     def _build_cost_graph(self):
         # 批量计算执行 ai 的 Q(S, a-i, ai)
         online_output_q = tf.reduce_sum(tf.multiply(self.online_q_outputs, self.self_action_input),keep_dims=True,axis = 1)
-        self.cost = tf.reduce_mean(tf.square(self.Q_value_label_input - online_output_q))
+
+        with tf.name_scope("critic/loss"):
+            self.cost = tf.reduce_mean(tf.square(self.Q_value_label_input - online_output_q))
+            tf.summary.scalar('critic_loss', self.cost)  # tensorflow >= 0.12
 
         if self.use_batch_norm:
             # If we don't include the update ops as dependencies on the train step, the

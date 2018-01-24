@@ -23,7 +23,11 @@ class Actor(object):
 
         with tf.variable_scope("Actor"):
             # online actor
-            self.softmax_action_outputs, self.cross_entropy = self._build_net(self.state_input,"online_actor",trainable=True)
+            self.softmax_action_outputs = self._build_net(self.state_input,"online_actor",trainable=True)
+            eps = 1e-10
+            y_clip = tf.clip_by_value(self.softmax_action_outputs, eps, 1.0 - eps)
+            self.entropy_loss = -tf.reduce_mean(tf.reduce_sum(y_clip*tf.log(y_clip),axis=1))
+            # self.entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.logits,labels=y_clip,dim=-1))
             self.online_policy_net_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                                             scope='Actor/online_actor')
 
@@ -31,7 +35,7 @@ class Actor(object):
                                                    for var in self.online_policy_net_vars}
 
             # target actor : 输入的是 S' 输出 a'
-            self.target_softmax_action_outputs, _ = self._build_net(self.state_input, "target_actor", trainable=False)
+            self.target_softmax_action_outputs = self._build_net(self.state_input, "target_actor", trainable=False)
             self.target_policy_net_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
                                                             scope='Actor/target_actor')
 
@@ -47,13 +51,25 @@ class Actor(object):
         # hidden layer 2: 128
         # output layer: 3
         with tf.variable_scope(scope):
-            layer1 = self._fully_connected(state_inputs,[self.state_dim * 13, 1024],[1024],activation_fn=tf.nn.elu,variable_scope_name="layer1",trainable=trainable)
-            layer2 = self._fully_connected(layer1,[1024, 256],[256],activation_fn=tf.nn.elu,variable_scope_name="layer2",trainable=trainable)
-            layer3 = self._fully_connected(layer2,[256, 128],[128],activation_fn=tf.nn.elu,variable_scope_name="layer3",trainable=trainable)
-            logits = self._fully_connected(layer3,[128,self.action_dim],[self.action_dim],activation_fn=None,variable_scope_name="logits",trainable=trainable)
-            actions_probability = tf.nn.softmax(logits, dim=-1, name="softmax")
-            cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=logits,logits=logits, dim=-1,)
-        return actions_probability, cross_entropy
+            # activation_func = tf.nn.elu
+            # activation_func = tf.nn.relu
+            activation_func = tf.nn.tanh
+            layer1 = self._fully_connected(state_inputs,[self.state_dim * 13, 1024],[1024],activation_fn=activation_func,variable_scope_name="layer1",trainable=trainable)
+            layer2 = self._fully_connected(layer1,[1024, 256],[256],activation_fn=activation_func,variable_scope_name="layer2",trainable=trainable)
+            layer3 = self._fully_connected(layer2,[256, 128],[128],activation_fn=activation_func,variable_scope_name="layer3",trainable=trainable)
+            # logits = self._fully_connected(layer3,[128,self.action_dim],[self.action_dim],activation_fn=None,variable_scope_name="logits",trainable=trainable)
+            # actions_probability = tf.nn.softmax(logits, dim=-1, name="softmax")
+            actions_probability = self._fully_connected(layer3,[128,self.action_dim],[self.action_dim],activation_fn=tf.nn.softmax,variable_scope_name="logits",trainable=trainable)
+
+            # 对 logits 归一化就不会越界了
+            # logits_max = tf.reduce_max(logits, axis=1, keep_dims=True)
+            # logits_normalized = logits / logits_max
+            # actions_probability = tf.nn.softmax(logits_normalized, dim=-1, name="softmax")
+
+            # with tf.name_scope("actor/softmax"):
+            #     tf.summary.histogram('actor/softmax', actions_probability)  # Tensorflow >= 0.12
+
+        return actions_probability
 
     def _build_update_graph(self):
         # target net hard replacement
@@ -71,16 +87,20 @@ class Actor(object):
             tf.log(tf.reduce_sum(self.softmax_action_outputs * self.execute_action, keep_dims=True, axis=1)) * self.advantage
         )
         
-        self.reduce_entropy = COMA_CFG.ENTROPY_REGULARIZER_LAMBDA * tf.reduce_mean(self.cross_entropy)
-        
+        self.reduce_entropy = COMA_CFG.ENTROPY_REGULARIZER_LAMBDA * self.entropy_loss
+        with tf.name_scope("actor/loss"):
+            self.total_cost = -(self.cost+self.reduce_entropy)
+            tf.summary.scalar('actor_total_loss', self.total_cost)  # tensorflow >= 0.12
+            tf.summary.scalar('actor_loss', -self.cost)  # tensorflow >= 0.12
+
         if self.use_batch_norm:
             # If we don't include the update ops as dependencies on the train step, the
             # tf.layers.batch_normalization layers won't update their population statistics,
             # which will cause the model to fail at inference time
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope='Actor')):
-                self.train = tf.train.AdamOptimizer(COMA_CFG.learning_rate).minimize(-(self.cost+self.reduce_entropy))
+                self.train = tf.train.AdamOptimizer(COMA_CFG.learning_rate).minimize(self.total_cost)
         else:
-            self.train = tf.train.AdamOptimizer(COMA_CFG.learning_rate).minimize(-(self.cost+self.reduce_entropy))
+            self.train = tf.train.AdamOptimizer(COMA_CFG.learning_rate).minimize(self.total_cost)
 
 
 
@@ -101,13 +121,20 @@ class Actor(object):
         })
         return prob_weights
 
+    @staticmethod
+    def has_nan(x):
+        test = x != x
+        return np.sum(test) > 0
+
     # 定义如何选择行为，即状态ｓ处的行为采样.根据当前的行为概率分布进行采样
     def operation_choose_action(self, state, is_training):
         prob_weights = self.sess.run(self.softmax_action_outputs,feed_dict={
             self.state_input:state,
             self.is_training: is_training
         })
+        # if self.has_nan(prob_weights):
         # print(prob_weights)
+
         # 按照给定的概率采样
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())
         return action, prob_weights
@@ -130,12 +157,13 @@ class Actor(object):
         :param state: state batch (sampled from the replay buffer)
         :return:
         '''
-        self.sess.run(self.train,feed_dict={
+        _, cost = self.sess.run([self.train, self.total_cost],feed_dict={
             self.state_input: state,
             self.execute_action: execute_action,
             self.advantage: advantage,
             self.is_training: is_training
         })
+        # print("cost: ", cost)
 
     def operation_update_TDnet_compeletely(self):
         '''
@@ -169,9 +197,9 @@ class Actor(object):
             return linear_output if not activation_fn else activation_fn(linear_output)
 
     def _weight_variable(self, shape, trainable, name='weights'):
-        return tf.Variable(tf.truncated_normal(shape, stddev=0.1), trainable=trainable, name=name)
+        return tf.Variable(tf.truncated_normal(shape, stddev=0.01), trainable=trainable, name=name)
     def _bias_variable(self, shape, trainable, name="bias"):
-        return tf.Variable(tf.constant(0.1, dtype=tf.float32, shape=shape), trainable=trainable, name = name)
+        return tf.Variable(tf.constant(0.01, dtype=tf.float32, shape=shape), trainable=trainable, name = name)
     def _conv2d(self, x, w, stride = (1, 1, 1, 1)):
         return tf.nn.conv2d(x, w, strides=stride, padding='SAME')
     def _max_pooling(self, x, ksize = (1, 2, 2, 1), strides = (1,2,2,1)):

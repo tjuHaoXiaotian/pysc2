@@ -108,6 +108,7 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
     part2_2 = tmp[9:,3:] / part2_2_division
     part2 = np.vstack([part2_1,part2_2])
     features = np.hstack([part1,part2])
+    print(features)
     # return features
     return np.hstack(features), None if len(alive_friends_order) == 0 else alive_friends_order
 

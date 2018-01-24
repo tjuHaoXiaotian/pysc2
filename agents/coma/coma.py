@@ -17,7 +17,7 @@ from pysc2.agents.common.env_until import cal_local_observation_for_unit,convert
 from pysc2.agents.coma.replay_buffer import construct_transition, ReplayBuffer
 from pysc2.agents.coma.actor import Actor
 from pysc2.agents.coma.ciritic import Critic
-
+import os
 # ==========================================features =================================================
 # feature 玩家 0, 1
 _PLAYER_ID = features.SCREEN_FEATURES.player_id.index
@@ -55,23 +55,29 @@ _SCREEN_SIZE = [83, 83]
 
 
 COMA_CFG = tf.app.flags.FLAGS  # alias
+COMA_CFG.map = "DefeatRoaches"
+
 COMA_CFG.replay_buff_size = 1
-COMA_CFG.batch_size = 32
+COMA_CFG.batch_size = 16
 COMA_CFG.replay_buff_size = 10**6  # 1M
 COMA_CFG.replay_buff_save_segment_size = 30*3000  # every 180,000 Transition data.
 # COMA_CFG.replay_buff_save_segment_size = 30  # every 180,000 Transition data.
-COMA_CFG.replay_buffer_file_path = "replay_buffers"
+COMA_CFG.replay_buffer_file_path = "{}/replay_buffers".format(COMA_CFG.map)
 COMA_CFG.random_seed = 1
+
 
 COMA_CFG.agent_num = 9
 COMA_CFG.enemy_num = 4
 COMA_CFG.action_dim = 10 # one-hot 以后
 COMA_CFG.state_dim = 11
 COMA_CFG.tau = 0.01 # soft replacement
-COMA_CFG.learning_rate = 1e-3
-COMA_CFG.q_learning_rate = 1e-3
+COMA_CFG.learning_rate = 1e-4
+COMA_CFG.q_learning_rate = 1e-4
 COMA_CFG.GAMMA = 0.95
-COMA_CFG.ENTROPY_REGULARIZER_LAMBDA = 0.05
+COMA_CFG.ENTROPY_REGULARIZER_LAMBDA = 0.1
+
+COMA_CFG.CAL_WIN_RATE_EVERY_EPISODES = 100
+
 
 '''
     1: 确定通按照 tag 排序后（从小到大），tag 的顺序 对应 数组index的顺序 (能用)
@@ -105,6 +111,11 @@ class Coma(base_agent.BaseAgent):
         self.recent_100_episodes_win_cumulative = 0
         self.pre_100_episodes_win = 0
 
+        # 记录 cumulative reward 曲线
+        with tf.name_scope("cumulative_reward"):
+            self.cumulative_reward_tensor = tf.placeholder(dtype=tf.float32, shape=None, name="reward")
+            tf.summary.scalar('cumulative_reward', self.cumulative_reward_tensor)  # tensorflow >= 0.12
+
         if self.is_training:
             # 实例化 replay buffer，指定是否将buffer数据保存到文件
             self.replay_buffer = ReplayBuffer(buffer_size=COMA_CFG.replay_buff_size,
@@ -116,6 +127,13 @@ class Coma(base_agent.BaseAgent):
             self.model_id = 0
             self.model_win_episodes = 0
             self.model_total_episodes = 0
+
+            # add summary
+            # merged= tf.merge_all_summaries()    # tensorflow < 0.12
+            self.merged = tf.summary.merge_all()  # tensorflow >= 0.12
+
+            # writer = tf.train.SummaryWriter('logs/', sess.graph)    # tensorflow < 0.12
+            self.writer = tf.summary.FileWriter("logs/", self.sess.graph)  # tensorflow >=0.12
 
             # initalize the variables
             self.sess.run(tf.global_variables_initializer())
@@ -153,9 +171,12 @@ class Coma(base_agent.BaseAgent):
             if self.isLast(obs): # 我输了
                 # 统计模型赢了次数：
                 self.model_total_episodes += 1
-                if self.episodes % 10 == 0:
+                if self.episodes % COMA_CFG.CAL_WIN_RATE_EVERY_EPISODES == 0:
                     self.pre_100_episodes_win = self.recent_100_episodes_win_cumulative
                     self.recent_100_episodes_win_cumulative = 0
+                    # log to file
+                    content = "episodes {}, steps {}, recent 100 times' win rate {}/100".format(self.episodes,self.steps,self.pre_100_episodes_win)
+                    self._append_log_to_file("{}/recent/win_rate.txt".format(COMA_CFG.map), content)
 
                 actions_original,actions_queue = [], []
                 actions_queue.append(actions.FunctionCall(_NO_OP, []))
@@ -171,12 +192,12 @@ class Coma(base_agent.BaseAgent):
                 states_to_save = {}
                 actions_to_save = {}
                 alive_order_to_save = {}
-                select_actions = []
+                # select_actions = []
                 for friend in alive_friends:
                     local_observation, alive_friends_order = cal_local_observation_for_unit(friend, alive_friends, alive_enemies, self.friends_tag_2_id)
                     selected_action_id,_ = self.actor.operation_choose_action([local_observation], is_training=False)
                     # select_actions.append(selected_action_id)
-                    select_actions.append(_)
+                    # select_actions.append(_)
                     action_sc2 = convert_discrete_action_2_sc2_action(friend, selected_action_id, alive_enemies, self.enemies_id_2_tag)
                     actions_queue.extend(action_sc2)
                     # 保存 state 和 action
@@ -184,7 +205,7 @@ class Coma(base_agent.BaseAgent):
                     actions_to_save[self.friends_tag_2_id[friend[0]]] = one_hot_action(selected_action_id)
                     # 每个单位角度，存活单位顺序（包括自己）
                     alive_order_to_save[self.friends_tag_2_id[friend[0]]] = alive_friends_order
-                print(select_actions)
+                # print(select_actions)
                 # 5：如果不是开始和结束，则存储 (s,a,r,s_,done,model alived ids)
                 if not self.isFirst(obs) and self.is_training:
                     # 存储
@@ -209,9 +230,12 @@ class Coma(base_agent.BaseAgent):
                 self.recent_100_episodes_win_cumulative += 1
                 self.cumulative_win_times += 1
 
-                if self.episodes % 10 == 0:
+                if self.episodes % COMA_CFG.CAL_WIN_RATE_EVERY_EPISODES == 0:
                     self.pre_100_episodes_win = self.recent_100_episodes_win_cumulative
                     self.recent_100_episodes_win_cumulative = 0
+                    # log to file
+                    content = "episodes {}, steps {}, recent 100 times' win rate {}/100".format(self.episodes,self.steps, self.pre_100_episodes_win)
+                    self._append_log_to_file("{}/recent/win_rate.txt".format(COMA_CFG.map), content)
 
                 # 存储 (结局状态不重要)
                 self.save_transition(self.pre_alive_order, self.pre_observation, self.pre_actions, reward, self.pre_alive_order, self.pre_observation, True)
@@ -219,7 +243,7 @@ class Coma(base_agent.BaseAgent):
 
 
         # TODO: batch training  and self.episodes % 2 == 0
-        if self.replay_buffer.length >= COMA_CFG.batch_size * 2 and self.is_training and self.win_times <= 2:
+        if self.replay_buffer.length >= COMA_CFG.batch_size * 2 and self.is_training and self.win_times <= 2 and self.steps % 2 == 0:
             state_batch, action_others_batch, action_batch, reward_batch, next_state_batch, next_state_others_batch, terminated_batch = self.replay_buffer.sample_batch(COMA_CFG.batch_size)
             # training critic:
             # 1: 准备 batch 数据
@@ -250,27 +274,53 @@ class Coma(base_agent.BaseAgent):
             # update actor
             self.actor.operation_actor_learn(state_batch, action_batch, batch_advantages, is_training=True)
 
+            # add summary
+            if self.steps % 50 == 0:
+                rs = self.sess.run(self.merged, feed_dict={
+                    self.actor.state_input:state_batch,
+                    self.actor.execute_action:action_batch,
+                    self.actor.advantage:batch_advantages,
+                    self.actor.is_training: True,
+
+                    self.critic.critic_state_input: state_batch,
+                    self.critic.other_units_action_input: action_others_batch,
+                    self.critic.self_action_input: action_batch,
+                    self.critic.Q_value_label_input: batch_td_target,
+                    self.critic.is_training: True,
+
+                    self.cumulative_reward_tensor: self.reward
+                })
+                self.writer.add_summary(rs, self.steps)
+
             # soft update the parameters of the two model
             # print("soft update parameters: episode {}, step {}, reward： {}".format(self.episodes, self.steps, reward))
             self.actor.operation_soft_update_TDnet()
             self.critic.operation_soft_update_TDnet()
 
         # 没一个小时保存一次模型
-        if self.is_training and (time.time() - self.pre_save_time) > 2000:
-            f = open("model/model.txt".format(time.time()), "a")  # 打开文件以便写入
-            # np.set_printoptions(threshold=np.inf)  # 全部输出
-            # f.write(str(self._obs))
-            print(self.model_id,"({},{}): ".format(self.episodes,self.steps),self.model_win_episodes,"/",self.model_total_episodes,"\n", file=f)
-            f.flush()
-            f.close()
+        if self.is_training and (time.time() - self.pre_save_time) > 1800:
+            content = "model {}: episodes {}, steps {}, win rate {}/{}".format(self.model_id, self.episodes, self.steps, self.model_win_episodes, self.model_total_episodes)
+            self._append_log_to_file("{}/model/model.txt".format(COMA_CFG.map), content)
+
             self.model_win_episodes = 0
             self.model_total_episodes = 0
 
-            self.saver.save(self.sess, "checkpoint_{}/model.ckpt".format(self.model_id))
+            self.saver.save(self.sess, "{}/checkpoint_{}/model.ckpt".format(COMA_CFG.map,self.model_id))
             self.pre_save_time = time.time()
             self.model_id += 1
 
         return actions_queue
+
+    def _append_log_to_file(self, file_name, content):
+        dir_name = os.path.dirname(file_name)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+        f = open(file_name, "a")  # 打开文件以便写入
+        # np.set_printoptions(threshold=np.inf)  # 全部输出
+        # f.write(str(self._obs))
+        print(content, file=f)
+        f.flush()
+        f.close()
 
     def _flatten_others_actions(self, others_actions):
         while len(others_actions) < (COMA_CFG.agent_num - 1):

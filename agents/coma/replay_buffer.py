@@ -101,7 +101,7 @@ class ReplayBuffer(object):
       os.makedirs(self.save_path)
 
     abs_file_name = os.path.abspath(os.path.join(self.save_path,
-                            '_'.join([COMA_CFG.replay_buffer_file_name,str(self.save_segment_cnt),time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) ])))
+                            '_'.join([COMA_CFG.replay_buffer_file_name,str(self.save_segment_cnt),time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()),'.buffer'])))
 
     with open(abs_file_name,'wb') as f:
       pkl.dump(data, f)
