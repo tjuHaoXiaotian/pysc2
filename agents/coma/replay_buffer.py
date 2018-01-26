@@ -15,7 +15,6 @@ import os
 import glob
 import pickle as pkl
 import time
-import random
 
 COMA_CFG = tf.app.flags.FLAGS  # alias
 COMA_CFG.replay_buffer_file_name = 'replay_buffer'

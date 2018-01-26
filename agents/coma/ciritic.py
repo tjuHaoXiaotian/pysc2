@@ -11,7 +11,7 @@ class Critic(object):
         self.action_dim = action_dim
         self.agent_num = agent_num
         self.use_batch_norm = use_batch_norm
-        self.is_training = tf.placeholder(tf.bool, name="is_training")
+        self.is_training = tf.placeholder(tf.bool, shape=[], name="is_training")
 
 
         self.critic_state_input = tf.placeholder(dtype=tf.float32, shape=[None,self.state_dim * 13], name='critic_state_input')
@@ -62,8 +62,8 @@ class Critic(object):
         with tf.variable_scope(scope):
             # TODO: 目前是分别计算，求和累加
             # activation_func = tf.nn.elu
-            # activation_func = tf.nn.relu
-            activation_func = tf.nn.tanh
+            activation_func = tf.nn.relu
+            # activation_func = tf.nn.tanh
             layer1_action = self._fully_connected(other_units_action_input, [self.action_dim * (self.agent_num-1), 1024], [1024], activation_fn=activation_func,
                                            variable_scope_name="layer1_action", trainable=trainable)
             layer1_state = self._fully_connected(critic_state_inputs, [self.state_dim * 13, 1024], [1024], activation_fn=activation_func,
@@ -77,6 +77,9 @@ class Critic(object):
 
             with tf.name_scope("critic/q"):
                 tf.summary.histogram('critic/q', out)  # Tensorflow >= 0.12
+
+            with tf.name_scope("critic/average_q"):
+                tf.summary.scalar('critic/average_q', tf.reduce_mean(tf.reduce_sum(out, axis=1, keep_dims=False)))  # tensorflow >= 0.12
         return out
 
     def _build_update_graph(self):
@@ -91,7 +94,7 @@ class Critic(object):
     def _build_td_target_graph(self):
         self.td_target = tf.where(self.terminal,
                                   self.reward,
-                                  self.reward + COMA_CFG.GAMMA * tf.reduce_max(self.target_q_outputs, keep_dims=True, axis=1))
+                                  self.reward + COMA_CFG.gamma * tf.reduce_max(self.target_q_outputs, keep_dims=True, axis=1))
 
     def _build_cost_graph(self):
         # 批量计算执行 ai 的 Q(S, a-i, ai)
@@ -193,10 +196,10 @@ class Critic(object):
             return linear_output if not activation_fn else activation_fn(linear_output)
 
     def _weight_variable(self, shape, trainable, name='weights'):
-        return tf.Variable(tf.truncated_normal(shape, stddev=0.1), trainable=trainable, name=name)
+        return tf.Variable(tf.truncated_normal(shape, stddev=0.01), trainable=trainable, name=name)
 
     def _bias_variable(self, shape, trainable, name="bias"):
-        return tf.Variable(tf.constant(0.1, dtype=tf.float32, shape=shape), trainable=trainable, name=name)
+        return tf.Variable(tf.constant(0.01, dtype=tf.float32, shape=shape), trainable=trainable, name=name)
 
     def _conv2d(self, x, w, stride=(1, 1, 1, 1)):
         return tf.nn.conv2d(x, w, strides=stride, padding='SAME')

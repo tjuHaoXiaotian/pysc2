@@ -12,8 +12,9 @@ class Actor(object):
         self.action_dim = action_dim
         self.state_dim = state_dim
         self.use_batch_norm = use_batch_norm
-        self.is_training = tf.placeholder(tf.bool, name="is_training")
-
+        self.is_training = tf.placeholder(tf.bool, shape=[], name="is_training")
+        self.keep_prob = tf.placeholder(tf.float32, shape=[], name='keep_prob')
+        self.batch_size = tf.placeholder(tf.int32, shape=[], name="batch_size")
 
         self.state_input = tf.placeholder(dtype=tf.float32, shape=[None,self.state_dim * 13], name="state_input")
         # 实际执行的动作，也就是对应actor要更新的输出 Notice: 这里已经 one-hot了
@@ -51,23 +52,44 @@ class Actor(object):
         # hidden layer 2: 128
         # output layer: 3
         with tf.variable_scope(scope):
-            # activation_func = tf.nn.elu
+            # ==================================== Basic LSTM ==================================
+            # 这里暂时把所有单位由远及近 当成时序处理
+            state_inputs = tf.reshape(state_inputs, [-1, COMA_CFG.seq_length, COMA_CFG.state_dim])
+
+            lstm  = tf.contrib.rnn.BasicLSTMCell(COMA_CFG.lstm_size, forget_bias=1.0, state_is_tuple=True)
+            # Add dropout to the cell
+            drop = tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob=self.keep_prob)
+            # Stack up multiple LSTM layers
+            cell = tf.contrib.rnn.MultiRNNCell([drop] * COMA_CFG.lstm_layer)
+            # Getting an initial state of all zeros
+            self.initial_state = cell.zero_state(self.batch_size, tf.float32)
+            # initial_state = self.initial_state
+            # outputs, self.final_state = tf.nn.dynamic_rnn(cell=cell, inputs=state_inputs, dtype=tf.float32)
+            outputs, self.final_state = tf.nn.dynamic_rnn(cell=cell, inputs=state_inputs, initial_state=self.initial_state)
+
+            #直接调用final_state 中的 h_state (final_state[1]) 来进行运算:
+            actions_probability = self._fully_connected(outputs[:, -1, :], [COMA_CFG.lstm_size, self.action_dim], [self.action_dim],
+                                                        activation_fn=tf.nn.softmax, variable_scope_name="output",
+                                                        trainable=trainable)
+
+            # ==================================== linear layers =================================================
+            # # activation_func = tf.nn.elu
             # activation_func = tf.nn.relu
-            activation_func = tf.nn.tanh
-            layer1 = self._fully_connected(state_inputs,[self.state_dim * 13, 1024],[1024],activation_fn=activation_func,variable_scope_name="layer1",trainable=trainable)
-            layer2 = self._fully_connected(layer1,[1024, 256],[256],activation_fn=activation_func,variable_scope_name="layer2",trainable=trainable)
-            layer3 = self._fully_connected(layer2,[256, 128],[128],activation_fn=activation_func,variable_scope_name="layer3",trainable=trainable)
-            # logits = self._fully_connected(layer3,[128,self.action_dim],[self.action_dim],activation_fn=None,variable_scope_name="logits",trainable=trainable)
-            # actions_probability = tf.nn.softmax(logits, dim=-1, name="softmax")
-            actions_probability = self._fully_connected(layer3,[128,self.action_dim],[self.action_dim],activation_fn=tf.nn.softmax,variable_scope_name="logits",trainable=trainable)
-
-            # 对 logits 归一化就不会越界了
-            # logits_max = tf.reduce_max(logits, axis=1, keep_dims=True)
-            # logits_normalized = logits / logits_max
-            # actions_probability = tf.nn.softmax(logits_normalized, dim=-1, name="softmax")
-
-            # with tf.name_scope("actor/softmax"):
-            #     tf.summary.histogram('actor/softmax', actions_probability)  # Tensorflow >= 0.12
+            # # activation_func = tf.nn.tanh
+            # layer1 = self._fully_connected(state_inputs,[self.state_dim * 13, 1024],[1024],activation_fn=activation_func,variable_scope_name="layer1",trainable=trainable)
+            # layer2 = self._fully_connected(layer1,[1024, 256],[256],activation_fn=activation_func,variable_scope_name="layer2",trainable=trainable)
+            # layer3 = self._fully_connected(layer2,[256, 128],[128],activation_fn=activation_func,variable_scope_name="layer3",trainable=trainable)
+            # # logits = self._fully_connected(layer3,[128,self.action_dim],[self.action_dim],activation_fn=None,variable_scope_name="logits",trainable=trainable)
+            # # actions_probability = tf.nn.softmax(logits, dim=-1, name="softmax")
+            # actions_probability = self._fully_connected(layer3,[128,self.action_dim],[self.action_dim],activation_fn=tf.nn.softmax,variable_scope_name="logits",trainable=trainable)
+            #
+            # # 对 logits 归一化就不会越界了
+            # # logits_max = tf.reduce_max(logits, axis=1, keep_dims=True)
+            # # logits_normalized = logits / logits_max
+            # # actions_probability = tf.nn.softmax(logits_normalized, dim=-1, name="softmax")
+            #
+            # # with tf.name_scope("actor/softmax"):
+            # #     tf.summary.histogram('actor/softmax', actions_probability)  # Tensorflow >= 0.12
 
         return actions_probability
 
@@ -87,7 +109,7 @@ class Actor(object):
             tf.log(tf.reduce_sum(self.softmax_action_outputs * self.execute_action, keep_dims=True, axis=1)) * self.advantage
         )
         
-        self.reduce_entropy = COMA_CFG.ENTROPY_REGULARIZER_LAMBDA * self.entropy_loss
+        self.reduce_entropy = COMA_CFG.entropy_regularizer_lambda * self.entropy_loss
         with tf.name_scope("actor/loss"):
             self.total_cost = -(self.cost+self.reduce_entropy)
             tf.summary.scalar('actor_total_loss', self.total_cost)  # tensorflow >= 0.12
@@ -98,9 +120,30 @@ class Actor(object):
             # tf.layers.batch_normalization layers won't update their population statistics,
             # which will cause the model to fail at inference time
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope='Actor')):
-                self.train = tf.train.AdamOptimizer(COMA_CFG.learning_rate).minimize(self.total_cost)
+                # For RNN do clip
+                # Optimizer
+                optimizer = tf.train.AdamOptimizer(COMA_CFG.learning_rate)
+                # Gradient Clipping
+                tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                  scope='Actor/online_actor')
+                grads, _ = tf.clip_by_global_norm(tf.gradients(self.total_cost, tvars), COMA_CFG.grad_clip)
+                self.train = optimizer.apply_gradients(zip(grads, tvars))
+
+                # Linear layer
+                # self.train = tf.train.AdamOptimizer(COMA_CFG.learning_rate).minimize(self.total_cost
+
         else:
-            self.train = tf.train.AdamOptimizer(COMA_CFG.learning_rate).minimize(self.total_cost)
+            # For RNN do clip
+            # Optimizer
+            optimizer = tf.train.AdamOptimizer(COMA_CFG.learning_rate)
+            # Gradient Clipping
+            tvars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                      scope='Actor/online_actor')
+            grads, _ = tf.clip_by_global_norm(tf.gradients(self.total_cost, tvars), COMA_CFG.grad_clip)
+            self.train = optimizer.apply_gradients(zip(grads, tvars))
+
+            # Linear layer
+            # self.train = tf.train.AdamOptimizer(COMA_CFG.learning_rate).minimize(self.total_cost)
 
 
 
@@ -114,10 +157,19 @@ class Actor(object):
     #         self.state_input:state,
     #         self.is_training: is_training
     #     })
-    def operation_cal_softmax_probablility(self, state, is_training):
+    def operation_cal_softmax_probablility(self, batch_size, state, is_training):
+        '''
+        :param batch_size: RNN batch size
+        :param state:
+        :param is_training:
+        :return:
+        '''
         prob_weights = self.sess.run(self.softmax_action_outputs, feed_dict={
+            self.batch_size: batch_size,
             self.state_input: state,
-            self.is_training: is_training
+            self.is_training: is_training,
+            self.keep_prob: 1.,
+            # self.initial_state: new_cell_state
         })
         return prob_weights
 
@@ -127,10 +179,19 @@ class Actor(object):
         return np.sum(test) > 0
 
     # 定义如何选择行为，即状态ｓ处的行为采样.根据当前的行为概率分布进行采样
-    def operation_choose_action(self, state, is_training):
+    def operation_choose_action(self, batch_size, state, is_training):
+        '''
+        :param batch_size: RNN batch size
+        :param state:
+        :param is_training:
+        :return:
+        '''
         prob_weights = self.sess.run(self.softmax_action_outputs,feed_dict={
+            self.batch_size: batch_size,
             self.state_input:state,
-            self.is_training: is_training
+            self.is_training: is_training,
+            self.keep_prob: 1.,
+            # self.initial_state: new_cell_state
         })
         # if self.has_nan(prob_weights):
         # print(prob_weights)
@@ -139,31 +200,47 @@ class Actor(object):
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())
         return action, prob_weights
 
-    def operation_greedy_action(self, state, is_training):
+    def operation_greedy_action(self, batch_size, state, is_training):
+        '''
+        :param batch_size: RNN batch size
+        :param state:
+        :param is_training:
+        :return:
+        '''
         # observation[np.newaxis, :]
-        prob_weights = self.sess.run(self.softmax_action_outputs,feed_dict={
+        prob_weights = self.sess.run(self.target_softmax_action_outputs,feed_dict={
+            self.batch_size: batch_size,
             self.state_input: state,
-            self.is_training: is_training
+            self.is_training: is_training,
+            self.keep_prob: 1.,
+            # self.initial_state: new_cell_state
         })
         action = np.argmax(prob_weights, axis=1)
         return action
 
 
 
-    def operation_actor_learn(self, state, execute_action, advantage, is_training):
+    def operation_actor_learn(self, batch_size, state, execute_action, advantage, is_training):
         '''
         Traning the actor network
-        :param gradient: the gradient from Q to actor ouput action(note: the actor ouput is calculated from state batch),
+        :param batch_size: RNN batch size
         :param state: state batch (sampled from the replay buffer)
+        :param execute_action: action batch (sampled from the replay buffer, executed at that timestep)
+        :param advantage: calculated advantage
+        :param is_training:
         :return:
         '''
-        _, cost = self.sess.run([self.train, self.total_cost],feed_dict={
+        _, cost, final_state = self.sess.run([self.train, self.total_cost, self.final_state],feed_dict={
+            self.batch_size: batch_size,
             self.state_input: state,
             self.execute_action: execute_action,
             self.advantage: advantage,
+            self.keep_prob: COMA_CFG.keep_prob,
+            # self.initial_state: new_cell_state,
             self.is_training: is_training
         })
         # print("cost: ", cost)
+        return cost, final_state
 
     def operation_update_TDnet_compeletely(self):
         '''
@@ -183,9 +260,10 @@ class Actor(object):
         if self.use_batch_norm and activation_fn:
             with tf.variable_scope(variable_scope_name):
                 weights = self._weight_variable(weights_shape, trainable)
+                biases = self._bias_variable(biases_shape, trainable)
                 # Batch normalization uses weights as usual, but does NOT add a bias term. This is because
                 # its calculations include gamma and beta variables that make the bias term unnecessary.
-                linear_output = tf.matmul(layer_in, weights)
+                linear_output = tf.add(tf.matmul(layer_in, weights), biases)
                 # Apply batch normalization to the linear combination of the inputs and weights
                 batch_normalized_output = tf.layers.batch_normalization(linear_output, training=self.is_training)
                 return activation_fn(batch_normalized_output)

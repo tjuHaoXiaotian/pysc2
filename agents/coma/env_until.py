@@ -23,6 +23,12 @@ _SELECT = [0] # Select,Toggle,SelectAllOfType,AddAllType
 _SCREEN_SIZE = [83, 83]
 # =========================================parameters end ============================================
 
+_max_health_marines = 45.
+_max_health_roaches = 145.
+_max_dx = 83.
+_max_dy = 62.
+_max_distance = math.sqrt(_max_dx ** 2 + _max_dy ** 2)
+_max_facing = 360.
 
 def cal_local_observation_for_unit(current_unit, current_alive_friends, current_alive_enemies, units_tag_2_id):
     '''
@@ -31,10 +37,13 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
     :param current_alive_friends:  当前所有存活的己方单位
     :param current_alive_enemies:  当前所有存活的敌方单位
     :return: [ 己方单位由近及远（存活—> 死亡）, 敌方单位由近及远（存活—> 死亡）] 每个单位 11 维信息 * 13 个单位
+              [alive, owner, 类型, relative_distance, dx, dy, facing, health]
     '''
     alive_friends_order = []
-    relative_friends = []
-    relative_enemies = []
+    alive_friends = []
+    alive_enemies = []
+    all_alives = []
+    # 拼接存活 己方单位
     for friend in current_alive_friends:
         alive = 1
         tag = friend[0]
@@ -42,17 +51,44 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
         unit_owner = friend[2]
         dx = friend[3] - current_unit[3]
         dy = friend[4] - current_unit[4]
-        relative_distance = math.sqrt(dx ** 2 + dy ** 2)
-        facing = friend[5]
-        health = friend[6]
+        relative_distance = math.sqrt(dx ** 2 + dy ** 2) / _max_distance
+        dx  /= _max_dx
+        dy  /= _max_dy
+        facing = friend[5] / _max_facing
+        health = friend[6] / _max_health_marines
         relative_friend = [alive, unit_owner, unit_type, relative_distance, dx, dy, facing, health]
         alive_friends_order.append(units_tag_2_id[tag])
-        relative_friends.append(relative_friend)
+        alive_friends.append(relative_friend)
 
-    # 按照相对距离从小到大排序
-    relative_friends = sorted(zip(alive_friends_order,relative_friends), key=lambda x: (x[1][3]))
-    alive_friends_order = [item[0] for item in relative_friends]
-    relative_friends = [item[1] for item in relative_friends]
+    # 拼接存活 敌方单位
+    for enemy in current_alive_enemies:
+        alive = 1
+        unit_type = enemy[1]
+        unit_owner = enemy[2]
+        dx = enemy[3] - current_unit[3]
+        dy = enemy[4] - current_unit[4]
+        relative_distance = math.sqrt(dx ** 2 + dy ** 2) / _max_distance
+        dx /= _max_dx
+        dy /= _max_dy
+        facing = enemy[5] / _max_facing
+        health = enemy[6] / _max_health_roaches
+        relative_enemy = [alive, unit_owner, unit_type, relative_distance, dx, dy, facing, health]
+        alive_enemies.append(relative_enemy)
+
+    all_alives.extend(alive_friends)
+    all_alives.extend(alive_enemies)
+    # 按照相对距离从远到近排序
+    all_alives = sorted(all_alives, key=lambda x: (x[3]), reverse=True)
+
+    # print(all_alives)
+
+    # 按照相对距离从远到近排序
+    alive_enemies = sorted(alive_enemies, key=lambda x: (x[3]), reverse = True)
+
+    # 按照相对距离从远到近排序
+    alive_friends_and_order = sorted(zip(alive_friends_order,alive_friends), key=lambda x: (x[1][3]), reverse = True)
+    alive_friends_order = [item[0] for item in alive_friends_and_order]
+    alive_friends = [item[1] for item in alive_friends_and_order]
 
     for friend_dead in range(9 - len(current_alive_friends)):
         alive = 0
@@ -64,22 +100,8 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
         facing = 0
         health = 0
         relative_friend_dead = [alive, unit_owner, unit_type, relative_distance, dx, dy, facing, health]
-        relative_friends.append(relative_friend_dead)
+        all_alives.insert(0,relative_friend_dead)
 
-    for enemy in current_alive_enemies:
-        alive = 1
-        unit_type = enemy[1]
-        unit_owner = enemy[2]
-        dx = enemy[3] - current_unit[3]
-        dy = enemy[4] - current_unit[4]
-        relative_distance = math.sqrt(dx ** 2 + dy ** 2)
-        facing = enemy[5]
-        health = enemy[6]
-        relative_enemy = [alive, unit_owner, unit_type, relative_distance, dx, dy, facing, health]
-        relative_enemies.append(relative_enemy)
-
-    # 按照相对距离从小到大排序
-    relative_enemies = sorted(relative_enemies, key=lambda x: (x[3]))
 
     for enemy_dead in range(4 - len(current_alive_enemies)):
         alive = 0
@@ -91,22 +113,15 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
         facing = 0
         health = 0
         relative_enemy_dead = [alive, unit_owner, unit_type, relative_distance, dx, dy, facing, health]
-        relative_enemies.append(relative_enemy_dead)
-    tmp = []
-    tmp.extend(relative_friends)
-    tmp.extend(relative_enemies)
-    tmp = np.array(tmp, dtype=np.int32)
+        all_alives.insert(0,relative_enemy_dead)
+
+    tmp = np.array(all_alives, dtype=np.float32)
 
     # one-hot encoding
     enc = OneHotEncoder()
     enc.fit([[1,1,48], [0,1,48], [1,2,110], [0,2,110]])
     part1 = enc.transform(tmp[:, [0, 1, 2]]).toarray()
-    part2_1_division = [83 * 83, 83, 83, 360, 45]
-    part2_2_division = [83 * 83, 83, 83, 360, 145]
-    # normalizing
-    part2_1 = tmp[:9,3:] / part2_1_division
-    part2_2 = tmp[9:,3:] / part2_2_division
-    part2 = np.vstack([part2_1,part2_2])
+    part2 = tmp[:, 3:]
     features = np.hstack([part1,part2])
     # print(features)
     # return features

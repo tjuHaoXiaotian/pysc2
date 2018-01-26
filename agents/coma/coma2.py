@@ -59,7 +59,7 @@ COMA_CFG = tf.app.flags.FLAGS  # alias
 COMA_CFG.map = "DefeatRoaches"
 
 COMA_CFG.replay_buff_size = 1
-COMA_CFG.batch_size = 128
+COMA_CFG.batch_size = 32
 COMA_CFG.replay_buff_size = 10**6  # 1M
 COMA_CFG.replay_buff_save_segment_size = 30*3000  # every 180,000 Transition data.
 # COMA_CFG.replay_buff_save_segment_size = 30  # every 180,000 Transition data.
@@ -81,12 +81,12 @@ COMA_CFG.entropy_regularizer_lambda = 0.05
 
 COMA_CFG.cal_win_rate_every_episodes = 100
 COMA_CFG.log_every_steps = 100
-COMA_CFG.training_every_steps = 8
+COMA_CFG.training_every_steps = 2
 COMA_CFG.print_softmax_every_steps = 1000
 
 # LSTM layer
 COMA_CFG.lstm_layer = 1
-COMA_CFG.lstm_size = 128
+COMA_CFG.lstm_size = 32
 COMA_CFG.seq_length = COMA_CFG.agent_num + COMA_CFG.enemy_num
 COMA_CFG.grad_clip = 5
 COMA_CFG.keep_prob = 1
