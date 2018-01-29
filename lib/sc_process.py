@@ -70,7 +70,7 @@ class StarcraftProcess(object):
     args = [
         exec_path,
         "-listen", "127.0.0.1",
-        # "-listen", " 172.23.47.249",
+        # "-listen", "192.168.15.36",
         "-port", str(self._port),
         "-dataDir", os.path.join(run_config.data_dir, ""),
         "-tempDir", os.path.join(self._tmp_dir, ""),

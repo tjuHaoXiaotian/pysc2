@@ -40,7 +40,7 @@ flags.DEFINE_integer("screen_resolution", 84,
 flags.DEFINE_integer("minimap_resolution", 64,
                      "Resolution for minimap feature layers.")
 # raw data info
-flags.DEFINE_bool("feature_units", False, "Whether to include feature units.")
+flags.DEFINE_bool("feature_units", True, "Whether to include feature units.")
 # flags.DEFINE_integer("max_agent_steps", 2500, "Total agent steps.")
 flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
 # flags.DEFINE_integer("game_steps_per_episode", 0, "Game steps per episode.")
@@ -66,8 +66,9 @@ flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 flags.DEFINE_string("map", None, "Name of a map to use.")
 flags.mark_flag_as_required("map")
 
-
 def run_thread(agent_cls, map_name, visualize):
+
+
   with sc2_env.SC2Env(
       map_name=map_name,
       agent_race=FLAGS.agent_race,
