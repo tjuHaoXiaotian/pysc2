@@ -116,6 +116,8 @@ def main(unused_argv):
 def entry_point():  # Needed so setup.py scripts work.
   app.run(main)
 
+def run(argv):
+  app.run(main=main, argv = argv)
 
 if __name__ == "__main__":
   app.run(main)

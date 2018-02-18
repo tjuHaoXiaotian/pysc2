@@ -29,6 +29,7 @@ _max_dx = 83.
 _max_dy = 62.
 _max_distance = math.sqrt(_max_dx ** 2 + _max_dy ** 2)
 _max_facing = 360.
+_state_dim = 11
 
 def cal_local_observation_for_unit(current_unit, current_alive_friends, current_alive_enemies, units_tag_2_id):
     '''
@@ -75,15 +76,8 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
         relative_enemy = [alive, unit_owner, unit_type, relative_distance, dx, dy, facing, health]
         alive_enemies.append(relative_enemy)
 
-    # all_alives.extend(alive_friends)
-    # all_alives.extend(alive_enemies)
-    # 按照相对距离从远到近排序
-    # all_alives = sorted(all_alives, key=lambda x: (x[3]), reverse=True)
-
     all_alive_friends_count = len(alive_friends)
     all_alive_enemies_count = len(alive_enemies)
-
-    # print(all_alives)
 
     # 按照相对距离从远到近排序
     alive_enemies = sorted(alive_enemies, key=lambda x: (x[3]), reverse = True)
@@ -103,7 +97,8 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
         facing = 0
         health = 0
         relative_friend_dead = [alive, unit_owner, unit_type, relative_distance, dx, dy, facing, health]
-        alive_friends.insert(0, relative_friend_dead)
+        alive_friends.append(relative_friend_dead)
+        # alive_friends.insert(0, relative_friend_dead)
 
     for enemy_dead in range(4 - len(current_alive_enemies)):
         alive = 0
@@ -115,7 +110,8 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
         facing = 0
         health = 0
         relative_enemy_dead = [alive, unit_owner, unit_type, relative_distance, dx, dy, facing, health]
-        alive_enemies.insert(0, relative_enemy_dead)
+        alive_enemies.append(relative_enemy_dead)
+        # alive_enemies.insert(0, relative_enemy_dead)
 
     tmp_friends = np.array(alive_friends, dtype=np.float32)
     tmp_enemies = np.array(alive_enemies, dtype=np.float32)
@@ -133,8 +129,8 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
     features_enemies = np.hstack([part1_enemies, part2_enemies])
     features_enemies =  np.hstack(features_enemies)
     # print(features)
-    # return features
-    return [all_alive_friends_count, all_alive_enemies_count], [features_friends, features_enemies], None if len(alive_friends_order) == 0 else alive_friends_order
+    # alive_friends_order 决定了 action other 的顺序  None if len(alive_friends_order) == 0 else
+    return [features_friends, features_enemies], [all_alive_friends_count, all_alive_enemies_count], alive_friends_order
 
 Action = namedtuple('Action', ['stop', 'noop', 'move_up', 'move_right', 'move_down', 'move_left'
                                'attack_0', 'attack_1', 'attack_2', 'attack_3'])

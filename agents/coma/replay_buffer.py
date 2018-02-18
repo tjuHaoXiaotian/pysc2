@@ -16,8 +16,15 @@ import glob
 import pickle as pkl
 import time
 
+# tf.app.flags.DEFINE_string('data_dir', '/tmp/cifar10_data',
+#                        """Path to the CIFAR-10 data directory.""")
+
 COMA_CFG = tf.app.flags.FLAGS  # alias
-COMA_CFG.replay_buffer_file_name = 'replay_buffer'
+
+tf.app.flags.DEFINE_string('replay_buffer_file_name', 'replay_buffer', '''''')
+
+# COMA_CFG.DEFINE_string('replay_buffer_file_name','replay_buffer','replay_buffer_file_name')
+
 transition_fields = ['state','action_others','action', 'reward', 'next_state','next_state_others', 'terminated']
 Transition = namedtuple('Transition', transition_fields)
 

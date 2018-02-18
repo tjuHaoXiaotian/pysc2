@@ -14,6 +14,7 @@ import numpy as np
 import time
 
 import tensorflow as tf
+
 from pysc2.agents.coma.env_until import cal_local_observation_for_unit,convert_discrete_action_2_sc2_action,one_hot_action
 from pysc2.agents.coma.replay_buffer import construct_transition, ReplayBuffer
 from pysc2.agents.coma.actor import Actor
@@ -54,45 +55,44 @@ _SELECT = [0] # Select,Toggle,SelectAllOfType,AddAllType
 _SCREEN_SIZE = [83, 83]
 # =========================================parameters end ============================================
 
-
 COMA_CFG = tf.app.flags.FLAGS  # alias
-COMA_CFG.map = "DefeatRoaches"
 
-COMA_CFG.replay_buff_size = 1
-COMA_CFG.batch_size = 128
-COMA_CFG.replay_buff_size = 10**6  # 1M
-COMA_CFG.replay_buff_save_segment_size = 30*3000  # every 180,000 Transition data.
-# COMA_CFG.replay_buff_save_segment_size = 30  # every 180,000 Transition data.
-COMA_CFG.replay_buffer_file_path = "{}/replay_buffers".format(COMA_CFG.map)
+# tf.app.flags.DEFINE_string('map',"DefeatRoaches",'')
+
+tf.app.flags.DEFINE_integer('batch_size',64, '')
+tf.app.flags.DEFINE_integer('replay_buff_size', 10**6, '')  # 1M
+tf.app.flags.DEFINE_integer('replay_buff_save_segment_size', 30*3000, '')  # every 180,000 Transition data.
+# tf.app.flags.DEFINE_string('replay_buff_save_segment_size = 30  # every 180,000 Transition data.
+tf.app.flags.DEFINE_string('replay_buffer_file_path',"{}/replay_buffers".format(COMA_CFG.map),'')
 
 # random 种子
-COMA_CFG.random_seed = 7
+tf.app.flags.DEFINE_integer('random_seed',7,'')
 np.random.seed(COMA_CFG.random_seed)
 
-COMA_CFG.agent_num = 9
-COMA_CFG.enemy_num = 4
-COMA_CFG.action_dim = 10 # one-hot 以后
-COMA_CFG.state_dim = 11
-COMA_CFG.tau = 0.01 # soft replacement
-COMA_CFG.learning_rate = 1e-5
-COMA_CFG.q_learning_rate = 1e-4
-COMA_CFG.gamma = 0.95
-COMA_CFG.entropy_regularizer_lambda = 0.05
+tf.app.flags.DEFINE_integer('agent_num',9,'')
+tf.app.flags.DEFINE_integer('enemy_num',4,'')
+tf.app.flags.DEFINE_integer('action_dim',10,'') # one-hot 以后
+tf.app.flags.DEFINE_integer('state_dim',11,'')
+tf.app.flags.DEFINE_float('tau',0.01,'') # soft replacement
+tf.app.flags.DEFINE_float('learning_rate',1e-5,'')
+tf.app.flags.DEFINE_float('q_learning_rate',1e-4,'')
+tf.app.flags.DEFINE_float('gamma',0.95,'')
+tf.app.flags.DEFINE_float('entropy_regularizer_lambda',0.05,'')
 
-COMA_CFG.cal_win_rate_every_episodes = 100
-COMA_CFG.log_every_steps = 100
-COMA_CFG.training_every_steps = 8
-COMA_CFG.print_softmax_every_steps = 1000
+tf.app.flags.DEFINE_integer('cal_win_rate_every_episodes',100,'')
+tf.app.flags.DEFINE_integer('log_every_steps',100,'')
+tf.app.flags.DEFINE_integer('training_every_steps',8,'')
+tf.app.flags.DEFINE_integer('print_softmax_every_steps',1000,'')
 
 # LSTM layer
-COMA_CFG.lstm_layer = 1
-COMA_CFG.lstm_size = 128
-COMA_CFG.seq_length = COMA_CFG.agent_num + COMA_CFG.enemy_num
-COMA_CFG.grad_clip = 5
-COMA_CFG.keep_prob = 1
+tf.app.flags.DEFINE_integer('lstm_layer',1,'')
+tf.app.flags.DEFINE_integer('lstm_size',32,'')
+tf.app.flags.DEFINE_integer('seq_length',COMA_CFG.agent_num + COMA_CFG.enemy_num,'')
+tf.app.flags.DEFINE_integer('grad_clip',5,'')
+tf.app.flags.DEFINE_integer('keep_prob',1,'')
 
 
-COMA_CFG.verify_every_episodes = 1005
+tf.app.flags.DEFINE_integer('verify_every_episodes',1005,'')
 
 
 
@@ -365,7 +365,7 @@ class Coma(base_agent.BaseAgent):
 
         # TODO 每隔半个小时保存一次模型
         # if self.is_training and (time.time() - self.pre_save_time) > 1800:
-        if self.is_training and self.episodes == COMA_CFG.verify_every_episodes:
+        if self.is_training and self.model_total_episodes == COMA_CFG.verify_every_episodes:
             content = "model {}: episodes {}, steps {}, win rate {}/{}".format(self.model_id, self.episodes, self.steps, self.model_win_episodes, self.model_total_episodes)
             self._append_log_to_file("{}/model/model.txt".format(COMA_CFG.map), content)
 
