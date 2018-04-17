@@ -31,6 +31,32 @@ _max_distance = math.sqrt(_max_dx ** 2 + _max_dy ** 2)
 _max_facing = 360.
 _state_dim = 11
 
+
+'''
+    我不一定是最后一个，真的有可能是摞在一起的
+    我观察到的顺序 [5, 6, 8, 7, 0, 1, 4, 2, 3]
+    friend 2 tag {4303618224: 2, 4304928928: 5, 4303356100: 1, 4303093941: 0, 4305453217: 6, 4303880376: 3, 4304666777: 4, 4306763883: 8, 4305715361: 7}
+    我的信息 [4303618224         48          1         79         58          2
+             45]
+    所有存活单位 [[4303093941         48          1         65         58        357
+              45]
+     [4303356100         48          1         67         58        114
+              45]
+     [4303618224         48          1         79         58          2
+              45]
+     [4303880376         48          1         79         58        357
+              45]
+     [4304666777         48          1         76         58        357
+              45]
+     [4304928928         48          1         56         58        357
+              45]
+     [4305453217         48          1         58         58        245
+              45]
+     [4305715361         48          1         61         58        182
+              45]
+     [4306763883         48          1         61         56        131
+              45]]
+    '''
 def cal_local_observation_for_unit(current_unit, current_alive_friends, current_alive_enemies, units_tag_2_id):
     '''
     为 current_unit 准备局部观察信息
@@ -84,7 +110,7 @@ def cal_local_observation_for_unit(current_unit, current_alive_friends, current_
 
     # 按照相对距离从远到近排序
     alive_friends_and_order = sorted(zip(alive_friends_order,alive_friends), key=lambda x: (x[1][3]), reverse = True)
-    alive_friends_order = [item[0] for item in alive_friends_and_order]
+    alive_friends_order = [item[0] for item in alive_friends_and_order if item[0] != units_tag_2_id[current_unit[0]]]  # 我不一定是最后一个，真的有可能是摞在一起的，所以在这里提前把自己剔除掉
     alive_friends = [item[1] for item in alive_friends_and_order]
 
     for friend_dead in range(9 - len(current_alive_friends)):
@@ -142,7 +168,7 @@ def convert_discrete_action_2_sc2_action(current_unit, action_id, alive_enemies,
     location = [current_unit[3], current_unit[4]]
     actions_queue.append(actions.FunctionCall(_SELECT_POINT, [_SELECT, location]))
     if action_id == 0: # stop
-        actions_queue.append(actions_queue.append(actions.FunctionCall(_STOP_QUICK, [_NOT_QUEUED])))
+        actions_queue.append(actions.FunctionCall(_STOP_QUICK, [_NOT_QUEUED]))
     elif action_id == 1:  # noop
         actions_queue.append(actions.FunctionCall(_NO_OP, []))
     elif action_id <= 5:  # move

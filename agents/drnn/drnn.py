@@ -104,7 +104,7 @@ class DRNN(base_agent.BaseAgent):
     def __init__(self):
         super(DRNN, self).__init__(FLAGS.enemy_num)
         # 训练模式
-        self.is_training = True
+        self.is_training = False
         self.reload_from_model = False
         self.use_batch_norm = True
 
@@ -151,8 +151,7 @@ class DRNN(base_agent.BaseAgent):
             self.replay_buffer = ReplayBuffer(buffer_size=FLAGS.replay_buff_size,
                                               save_segment_size=FLAGS.replay_buff_save_segment_size,
                                               save_path=FLAGS.replay_buffer_file_path,
-                                              seed=FLAGS.random_seed
-                                              )
+                                              seed=FLAGS.random_seed)
             self.pre_save_time = time.time()
             self.model_id = 0
 
@@ -270,16 +269,8 @@ class DRNN(base_agent.BaseAgent):
                 agent_tuple['sequence_enemy'] = sequence_len[1]
                 agent_tuple['terminated'] = False
                 agent_tuple['action'] = one_hot_action(selected_action_id)
-                agent_tuple['action_other_order'] = alive_friends_order[:-1] # 站在自己角度，其他存活单位 id(not tag) 顺序（不包括自己）
-                assert len(alive_friends_order) > 0
-                if alive_friends_order[-1] != self.friends_tag_2_id[friend[0]]:
-                    print('我观察到的顺序',alive_friends_order)
-                    print('friend 2 tag',self.friends_tag_2_id)
-                    print('我的信息',friend)
-                    print('所有存活单位',alive_friends)
-                    print('我的观察',local_observation)
-                    print('观察 sequence length',sequence_len)
-                    return None
+                agent_tuple['action_other_order'] = alive_friends_order # 站在自己角度，其他存活单位 id(not tag) 顺序（不包括自己）
+
                 all_alive_agents[self.friends_tag_2_id[friend[0]]] = agent_tuple
 
                 # convert to sc2 actions
